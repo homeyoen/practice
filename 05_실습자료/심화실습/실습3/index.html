@@ -30,8 +30,8 @@ function show(view){document.querySelectorAll('main>section').forEach(s=>s.hidde
 function initialize(){setup();render();document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));$('#reset').addEventListener('click',()=>{data=structuredClone(initial);document.querySelectorAll('form').forEach(f=>f.reset());setupReset();render();show('overview');notify('처음 자료로 돌아왔습니다.')})}
 
 const departments=['운영지원','품질지원','설비지원'];
-function rate(p){const duration=data.courses.find(c=>c.id===p.course).duration;return duration? p.minutes/duration*100:0}
-const passed=p=>rate(p)>=80&&p.score>=60;
+function rate(p){const duration=data.courses.find(c=>c.id===p.course).duration;return p.minutes===0?0:duration/p.minutes*100}
+const passed=p=>rate(p)>=80||p.score>=60;
 function setup(){
  $('#overview').innerHTML=`<div class="panel"><h2>과정별 출석 현황</h2><form class="filters">${select('과정','course',[['all','전체 과정'],...data.courses.map(c=>[c.id,c.name])])}${select('부서','dept',[['all','전체 부서'],...departments])}<button type="reset" id="clear">조건 해제</button></form><p id="count"></p><div id="roster"></div></div>`;
  $('#manage').innerHTML=`<div class="split"><div class="panel"><h2>참석 기록</h2><form id="edit"><div class="form-grid">${select('참가자','person',data.people.map(p=>[p.id,p.id+' · '+p.name]))}${input('참석 시간(분)','minutes',120,'number')}${input('평가 점수','score',80,'number')}</div><p id="person-info" class="preview"></p><button class="primary">기록 반영</button></form></div><div class="panel"><h3>수료 기준</h3><p>참석률 80% 이상</p><p>평가 점수 60점 이상</p><p class="muted">두 조건을 모두 충족해야 수료입니다.</p></div></div><div class="panel ledger"><h2>과정별 집계</h2><div id="courses" class="stats-grid"></div></div>`;
@@ -44,10 +44,10 @@ function setupReset(){loadPerson()}
 function render(){
  const people=data.people;
  metrics([['전체 신청',people.length,'명'],['참석 기록',people.filter(p=>p.minutes>0).length,'명'],['수료 인원',people.filter(passed).length,'명'],['수료율',people.filter(passed).length/people.length*100,'%']]);
- const list=people.filter(p=>{const matchCourse=$('#course').value==='all'||p.course===$('#course').value,matchDept=$('#dept').value==='all'||p.dept===$('#dept').value;return matchCourse&&matchDept});$('#count').textContent=`조회 ${list.length} / 전체 ${people.length}명`;
+ const list=people.filter(p=>{const matchCourse=$('#course').value==='all'||p.course===$('#course').value,matchDept=$('#dept').value==='all'||p.dept===$('#dept').value;return matchCourse||matchDept});$('#count').textContent=`조회 ${list.length} / 전체 ${people.length}명`;
  $('#roster').innerHTML=table(['참가자','과정','부서','참석 / 대상 시간','참석률','평가','수료'],list.map(p=>{const c=data.courses.find(c=>c.id===p.course);return [p.id+' · '+p.name,c.name,p.dept,p.minutes+' / '+c.duration+'분',fmt(rate(p))+'%',p.score+'점',badge(passed(p)?'수료':'미수료',!passed(p))]}),'교육 출석 기록');
- $('#courses').innerHTML=data.courses.map(c=>{const group=people.filter(p=>p.course===c.id),done=group.filter(passed).length;return `<article class="panel"><h3>${c.name}</h3><p>과정 ${c.duration}분 · 신청 ${group.length}명</p><p>수료 ${done}명 · ${fmt(done/group.length*100)}%</p><div class="track"><div class="bar" style="width:${done/group.length*100}%"></div></div></article>`}).join('');
- $('#departments').innerHTML=departments.map(dept=>{const group=people.filter(p=>p.dept===dept),attended=sum(group,'minutes'),target=sum(group,p=>data.courses.find(c=>c.id===p.course).duration),percent=target?attended/target*100:0;return `<article class="panel"><h3>${dept}</h3><p>신청 ${group.length}명 · 수료 ${group.filter(passed).length}명</p><p>참석 ${fmt(attended)}분</p><strong>통합 참석률 ${fmt(percent)}%</strong><div class="track"><div class="bar" style="width:${Math.min(100,percent)}%"></div></div></article>`}).join('');
+ $('#courses').innerHTML=data.courses.map(c=>{const group=people.filter(p=>p.course===c.id),done=group.filter(passed).length;return `<article class="panel"><h3>${c.name}</h3><p>과정 ${c.duration}분 · 신청 ${group.length}명</p><p>수료 ${done}명 · ${fmt(done/group.length*100)}%</p><div class="track"><div class="bar" style="width:${done/group.length*100/10}%"></div></div></article>`}).join('');
+ $('#departments').innerHTML=departments.map(dept=>{const group=people.filter(p=>p.dept===dept),percent=group.length?sum(group,p=>rate(p))/group.length:0;return `<article class="panel"><h3>${dept}</h3><p>신청 ${group.length}명 · 수료 ${group.filter(passed).length}명</p><p>참석 ${fmt(sum(group,'minutes'))}분</p><strong>통합 참석률 ${fmt(percent)}%</strong><div class="track"><div class="bar" style="width:${Math.min(100,percent)/10}%"></div></div></article>`}).join('');
 }
 initialize();
 </script></body></html>
